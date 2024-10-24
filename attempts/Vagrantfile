@@ -1,0 +1,69 @@
+Vagrant.configure("2") do |config|
+    config.vm.box = "generic/ubuntu1804"
+    config.vm.boot_timeout = 300
+
+    config.vm.provider "qemu" do |qe|
+      qe.arch = "x86_64"
+      qe.machine = "q35"
+      qe.cpu = "max"
+      qe.net_device = "virtio-net-pci"
+    end
+  
+   # Provision the VM using a root user
+    config.vm.provision "shell", privileged: true, inline: <<-SHELL
+      # Update system and install required dependencies
+      sudo apt-get update
+      sudo apt-get install -y apt-transport-https ca-certificates curl wget gnupg lsb-release qemu bash
+
+      # Install Docker (required for Minikube)
+      sudo apt-get install -y docker.io
+      sudo systemctl enable --now docker
+
+      # Install Minikube
+      curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      sudo install minikube /usr/local/bin/
+      rm minikube
+
+      # Install Kubectl
+      curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+      chmod +x kubectl
+      sudo mv kubectl /usr/local/bin/
+
+      # Start Minikube. Running docker with minikube as the root user is not recommended but it's a quicker way to get things going. Create a new user and group before
+      sudo minikube start --force
+
+      # Install Helm
+      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # Install ArgoCD
+      kubectl create namespace argocd
+      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+      # Wait for ArgoCD components to be ready
+      kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+
+      # Expose ArgoCD server via NodePort for external access
+      kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
+
+      # Install Nginx using Helm as an example service
+      kubectl create namespace nginx
+      helm repo add nginx-stable https://helm.nginx.com/stable
+      helm install nginx-service nginx-stable/nginx-ingress --namespace nginx
+
+      # Install ArgoCD CLI
+      sudo curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+      sudo chmod +x /usr/local/bin/argocd
+
+      # Retrieve ArgoCD server password (default admin user)
+      echo "ArgoCD Admin password: $(kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o name | cut -d'/' -f 2)"
+
+      # Output Minikube IP and ArgoCD NodePort for accessing the ArgoCD UI
+      echo "Minikube IP: $(minikube ip)"
+      echo "ArgoCD NodePort: $(kubectl get svc argocd-server -n argocd -o=jsonpath='{.spec.ports[0].nodePort}')"
+
+      # Final instructions for accessing ArgoCD UI
+      echo "You can access ArgoCD UI at: http://$(minikube ip):$(kubectl get svc argocd-server -n argocd -o=jsonpath='{.spec.ports[0].nodePort}')"
+      echo "Login with username 'admin' and the password printed above."
+    SHELL
+end
+  

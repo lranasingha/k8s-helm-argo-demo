@@ -1,0 +1,20 @@
+ChatGPT prompt:
+I need to demonstrate how k8s + helm + argocd working together with an example. Use nginx instance as an example service. 
+
+Use latest stable versions of the above software. I need to provision this using vagrant on qemu with ubuntu 18. So shells like bash won't be there. 
+
+No need to create new users, print out the necessary login passwords.
+
+I need to access the argocd and k8s from the host mac. So configure networks correctly. 
+
+Can you create a vagrant script to achieve the above?
+
+
+Vagrant Help:
+https://gist.github.com/beauwilliams/69eabc42e540a309f53d55c4b8e6ffe3
+https://www.reddit.com/r/devops/comments/1ba3f22/vagrant_vms_on_mac_m1m2s/
+
+
+Multipass:
+https://ryan-schachte.com/blog/ansible_multipass/
+https://multipass.run/install
